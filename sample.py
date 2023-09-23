@@ -23,57 +23,69 @@ auth.set_access_token(access_token, access_token_secret)
 
 api = tweepy.API(auth)
 
-# The screen name of the account to track unfollowers
-screen_name = "byebye_birdie"
+# Get the screen name of the bot account
+bot_screen_name = api.me().screen_name
 
-# A set to store the current followers of the account
-current_followers = set()
+# Create a dictionary to store the followers of each user who follows the bot
+followers_dict = {}
 
 # A connection string to connect to SQL Server and use a memory-optimized table
 conn_str = "Driver={SQL Server};Server=your_server;Database=your_database;Trusted_Connection=yes;"
 
-# A function to get the followers of the account and update the set and the table
+# Define a function to get the followers of each user who follows the bot and update the dictionary and the table
 def get_followers():
-    global current_followers
-    # Use the Cursor object to iterate through followers
-    current_followers = set(tweepy.Cursor(api.followers_ids, screen_name=screen_name).items())
-    # Connect to SQL Server using pyodbc
-    conn = pyodbc.connect(conn_str)
-    # Create a cursor object to execute queries
-    cursor = conn.cursor()
-    # Delete all records from the memory-optimized table
-    cursor.execute("DELETE FROM Followers")
-    # Insert the current followers into the memory-optimized table
-    for user_id in current_followers:
-        cursor.execute("INSERT INTO Followers (user_id) VALUES (?)", user_id)
-    # Commit the changes and close the connection
-    conn.commit()
-    conn.close()
+    global followers_dict
+    # Loop through the users who follow the bot
+    for user in tweepy.Cursor(api.followers, screen_name=bot_screen_name).items():
+        # Get the screen name of the user
+        screen_name = user.screen_name
+        # Get the current followers of the user
+        current_followers = set(api.friends_ids(screen_name))
+        # Connect to SQL Server using pyodbc
+        conn = pyodbc.connect(conn_str)
+        # Create a cursor object to execute queries
+        cursor = conn.cursor()
+        # Delete all records from the memory-optimized table for the user
+        cursor.execute("DELETE FROM Followers WHERE screen_name = ?", screen_name)
+        # Insert the current followers into the memory-optimized table for the user
+        for user_id in current_followers:
+            cursor.execute("INSERT INTO Followers (screen_name, user_id) VALUES (?, ?)", screen_name, user_id)
+        # Commit the changes and close the connection
+        conn.commit()
+        conn.close()
+        # Update the dictionary with the current followers for the user
+        followers_dict[screen_name] = current_followers
 
-# A function to check if there are any unfollowers and tweet or DM them
+# Define a function to check for unfollowers and tweet or DM them
 def check_unfollowers():
-    global current_followers
-    # Get the previous followers from the set
-    previous_followers = current_followers.copy()
-    # Get the current followers and update the set and the table
-    get_followers()
-    # Find the difference between the previous and current followers
-    unfollowers = previous_followers - current_followers
-    # If there are any unfollowers, tweet or DM them with a message
-    if unfollowers:
-        # Compose a tweet or a DM with a summary of the unfollowers 
-        message = f"Bye bye {len(unfollowers)} accounts. You just unfollowed @{screen_name}. You will be missed. Not."
-        # Check if the user prefers to tweet or DM the message 
-        if tweet_preference:
-            # Post the tweet 
-            api.update_status(message)
-        else:
-            # Send the DM to the user 
-            api.send_direct_message(screen_name, message)
-        # Print the message for debugging purposes 
-        print(message)
+    global followers_dict
+    # Loop through the users who follow the bot
+    for user in tweepy.Cursor(api.followers, screen_name=bot_screen_name).items():
+        # Get the screen name of the user
+        screen_name = user.screen_name
+        # Get the previous followers of the user from the dictionary
+        previous_followers = followers_dict[screen_name]
+        # Get the current followers of the user and update the dictionary and the table
+        current_followers = set(api.friends_ids(screen_name))
+        # Find the difference between the previous and current followers
+        unfollowers = previous_followers - current_followers
+        # Update the dictionary with the current followers for the user
+        followers_dict[screen_name] = current_followers
+        # If there are any unfollowers, tweet or DM them with a message
+        if unfollowers:
+            # Compose a tweet or a DM with a summary of the unfollowers 
+            message = f"Bye bye {len(unfollowers)} accounts. You just unfollowed @{screen_name}. You will be missed. Not."
+            # Check if the user prefers to tweet or DM the message 
+            if tweet_preference:
+                # Post the tweet 
+                api.update_status(message)
+            else:
+                # Send the DM to the user 
+                api.send_direct_message(screen_name, message)
+            # Print the message for debugging purposes 
+            print(message)
 
-# Call the get_followers function for the first time to initialize the set and the table 
+# Call the get_followers function for the first time to initialize the dictionary and the table 
 get_followers()
 
 # Schedule the check_unfollowers function to run every day at noon using schedule 
