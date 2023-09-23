@@ -2,25 +2,16 @@ import tweepy
 import time
 import schedule
 import pyodbc
+import logging
 
-# Your app's API/consumer key and secret can be found under the Consumer Keys
-# section of the Keys and Tokens tab of your app, under the
-# Twitter Developer Portal Projects & Apps page at
-# 1
-consumer_key = ""
-consumer_secret = ""
+# Configure logging to write to a file named "unfollowers.log"
+logging.basicConfig(filename="unfollowers.log", level=logging.INFO, format="%(asctime)s %(message)s")
 
-# Your account's (the app owner's account's) access token and secret for your
-# app can be found under the Authentication Tokens section of the
-# Keys and Tokens tab of your app, under the
-# Twitter Developer Portal Projects & Apps page at
-# 1
-access_token = ""
-access_token_secret = ""
+# Authenticate to Twitter
+auth = tweepy.OAuthHandler("CONSUMER_KEY", "CONSUMER_SECRET")
+auth.set_access_token("ACCESS_TOKEN", "ACCESS_TOKEN_SECRET")
 
-auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-auth.set_access_token(access_token, access_token_secret)
-
+# Create API object
 api = tweepy.API(auth)
 
 # Get the screen name of the bot account
@@ -71,7 +62,7 @@ def check_unfollowers():
         unfollowers = previous_followers - current_followers
         # Update the dictionary with the current followers for the user
         followers_dict[screen_name] = current_followers
-        # If there are any unfollowers, tweet or DM them with a message
+        # If there are any unfollowers, tweet or DM them with a message and log it to a file 
         if unfollowers:
             # Compose a tweet or a DM with a summary of the unfollowers 
             message = f"Bye bye {len(unfollowers)} accounts. You just unfollowed @{screen_name}. You will be missed. Not."
@@ -82,8 +73,8 @@ def check_unfollowers():
             else:
                 # Send the DM to the user 
                 api.send_direct_message(screen_name, message)
-            # Print the message for debugging purposes 
-            print(message)
+            # Log the message to a file 
+            logging.info(message)
 
 # Call the get_followers function for the first time to initialize the dictionary and the table 
 get_followers()
