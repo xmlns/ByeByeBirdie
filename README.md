@@ -14,11 +14,7 @@ To install ByeByeBirdie, you need to have Python 3 and pip installed on your sys
 - Create a memory-optimized table in your SQL Server database with the following schema:
 
 ```sql
-CREATE TABLE Followers (
-    screen_name VARCHAR(50) NOT NULL,
-    user_id BIGINT NOT NULL,
-    CONSTRAINT PK_Followers PRIMARY KEY NONCLUSTERED HASH (screen_name, user_id) WITH (BUCKET_COUNT = 1000000)
-) WITH (MEMORY_OPTIMIZED = ON)
+CREATE TABLE Followers ( screen_name VARCHAR(50) NOT NULL, user_id BIGINT NOT NULL, CONSTRAINT PK_Followers PRIMARY KEY NONCLUSTERED HASH (screen_name, user_id) WITH (BUCKET_COUNT = 1000000) ) WITH (MEMORY_OPTIMIZED = ON) ON FG_MemoryOptimized_Users
 ```
 
 # Usage
