@@ -7,30 +7,30 @@ import logging
 # Configure logging to write to a file named "unfollowers.log"
 logging.basicConfig(filename="C:\\Users\\amogh\\Desktop\\byebyebirdie.log'", level=logging.INFO, format="%(asctime)s %(message)s")
 
-# Authenticate to Twitter
-auth = tweepy.OAuthHandler("CONSUMER_KEY", "CONSUMER_SECRET")
-auth.set_access_token("ACCESS_TOKEN", "ACCESS_TOKEN_SECRET")
-
-# Create API object
-api = tweepy.API(auth)
+client = Client(bearer_token="",
+                consumer_key="",
+                consumer_secret="",
+                access_token="",
+                access_token_secret="")
 
 # Get the screen name of the bot account
-bot_screen_name = api.me().screen_name
+bot_screen_name = "ByeByeBird85044"
+bot_user = client.get_user(username=bot_screen_name)
 
 # Define a default message to use when someone unfollows
 default_message = "Hey, I noticed you unfollowed me. Was it something I said?"
 
 # A connection string to connect to SQL Server and use a memory-optimized table
-conn_str = "Driver={ODBC Driver 18 for SQL Server};Server=your_server;Database=your_database;Trusted_Connection=yes;"
+conn_str = "Driver={ODBC Driver 18 for SQL Server};Server=localhost;Database=master;Trusted_Connection=True;"
 
 # Define a function to check for unfollowers and tweet or DM them with the default message
 def check_unfollowers():
     # Loop through the users who follow the bot
-    for user in tweepy.Cursor(api.followers, screen_name=bot_screen_name).items():
+    for user in client.get_followers(user_id=bot_user.data.id):
         # Get the screen name of the user
-        screen_name = user.screen_name
+        screen_name = user.data.username
         # Get the current followers of the user
-        current_followers = set(api.friends_ids(screen_name))
+        current_followers = set(client.get_following(user_id=user.data.id).data.ids)
         # Connect to SQL Server using pyodbc
         conn = pyodbc.connect(conn_str)
         # Create a cursor object to execute queries
@@ -45,18 +45,18 @@ def check_unfollowers():
         for user_id in unfollowers:
             try:
                 # Get the user object by id
-                unfollower = api.get_user(user_id)
+                unfollower = client.get_user(user_id=user_id).data
                 # Get their screen name
                 unfollower_screen_name = unfollower.screen_name
                 # Check if they have protected their tweets
                 if unfollower.protected:
                     # If yes, send them a direct message
-                    api.send_direct_message(user_id, default_message)
+                    client.create_direct_message(participant_id=user_id, text=f"Sent a DM to @{default_message}")
                     # Log the action
                     logging.info(f"Sent a DM to @{unfollower_screen_name} with the message: {default_message}")
                 else:
                     # If no, tweet at them
-                    api.update_status(f"@{unfollower_screen_name} {default_message}")
+                    client.create_tweet(text=f"@{unfollower_screen_name} {default_message}")
                     # Log the action
                     logging.info(f"Tweeted at @{unfollower_screen_name} with the message: {default_message}")
             except tweepy.TweepError as e:
